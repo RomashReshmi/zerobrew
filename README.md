@@ -1,14 +1,16 @@
 # zerobrew
 
-A faster homebrew.
+A faster, modern Mac package manager.
 
-zerobrew takes [uv](https://github.com/astral-sh/uv)'s model to Mac packages. The key design choice here is to use a content addressable store, allowing `zb` to reuse packages across installs, along with parallelizing downloads and extraction and aggressively caching HTTP requests. It interoperates with Homebrew's CDN, so you can use traditional packages.
+![zb demo](zb-demo.gif)
+
+zerobrew applies [uv](https://github.com/astral-sh/uv)'s model to Mac packages. Packages live in a content-addressable store (by sha256), so reinstalls are instant. Downloads, extraction, and linking run in parallel with aggressive HTTP caching. It pulls from Homebrew's CDN, so you can    swap `brew` for `zb` with your existing commands. 
 
 This leads to dramatic speedups, up to 5x cold and 20x warm. Full benchmarks [here](benchmark-results.txt).
 
 | Package | Homebrew | ZB (cold) | ZB (warm) | Cold Speedup | Warm Speedup |
 |---------|----------|-----------|-----------|--------------|--------------|
-| **Overall (top 100)** | - | - | - | **2.0x** | **7.6x** |
+| **Overall (top 100)** | 452s | 226s | 59s | **2.0x** | **7.6x** |
 | ffmpeg | 3034ms | 3481ms | 688ms | 0.9x | 4.4x |
 | libsodium | 2353ms | 392ms | 130ms | 6.0x | 18.1x |
 | sqlite | 2876ms | 625ms | 159ms | 4.6x | 18.1x |
