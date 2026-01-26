@@ -2,6 +2,14 @@
 
 a faster homebrew. inspired by [uv](https://github.com/astral-sh/uv).
 
+## install
+
+```bash
+curl -sSL https://raw.githubusercontent.com/lucasgelfond/zerobrew/main/install.sh | bash
+```
+
+After install, run the export command it prints, or restart your terminal.
+
 ## what is this?
 
 zerobrew is a drop-in replacement for `brew install` that's faster, especially on warm installs. it downloads prebuilt bottles from homebrew's CDN and installs them using content-addressable storage.

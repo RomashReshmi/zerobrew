@@ -2,9 +2,9 @@
 set -e
 
 # zerobrew installer
-# Usage: curl -sSL https://raw.githubusercontent.com/YOUR_USER/zerobrew/main/install.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/lucasgelfond/zerobrew/main/install.sh | bash
 
-ZEROBREW_REPO="https://github.com/YOUR_USER/zerobrew.git"
+ZEROBREW_REPO="https://github.com/lucasgelfond/zerobrew.git"
 ZEROBREW_DIR="$HOME/.zerobrew"
 ZEROBREW_BIN="$HOME/.local/bin"
 
@@ -46,19 +46,6 @@ cp target/release/zb "$ZEROBREW_BIN/zb"
 chmod +x "$ZEROBREW_BIN/zb"
 echo "Installed zb to $ZEROBREW_BIN/zb"
 
-# Add zb binary to PATH if not already there
-add_to_path() {
-    local path_entry="$1"
-    local config_file="$2"
-
-    if ! grep -q "$path_entry" "$config_file" 2>/dev/null; then
-        echo "" >> "$config_file"
-        echo "# zerobrew" >> "$config_file"
-        echo "export PATH=\"$path_entry:\$PATH\"" >> "$config_file"
-        echo "Added $path_entry to PATH in $config_file"
-    fi
-}
-
 # Detect shell config file
 case "$SHELL" in
     */zsh)
@@ -76,23 +63,47 @@ case "$SHELL" in
         ;;
 esac
 
-add_to_path "$ZEROBREW_BIN" "$SHELL_CONFIG"
+# Add to PATH in shell config if not already there
+PATHS_TO_ADD=("$ZEROBREW_BIN" "/opt/zerobrew/prefix/bin")
+for path_entry in "${PATHS_TO_ADD[@]}"; do
+    if ! grep -q "$path_entry" "$SHELL_CONFIG" 2>/dev/null; then
+        echo "" >> "$SHELL_CONFIG"
+        echo "# zerobrew" >> "$SHELL_CONFIG"
+        echo "export PATH=\"$path_entry:\$PATH\"" >> "$SHELL_CONFIG"
+        echo "Added $path_entry to PATH in $SHELL_CONFIG"
+    fi
+done
 
 # Export for current session so zb init works
-export PATH="$ZEROBREW_BIN:$PATH"
+export PATH="$ZEROBREW_BIN:/opt/zerobrew/prefix/bin:$PATH"
 
-# Run zb init to set up directories and add prefix to PATH
+# Set up /opt/zerobrew directories with correct ownership
+echo ""
+echo "Setting up zerobrew directories..."
+CURRENT_USER=$(whoami)
+if [[ ! -d "/opt/zerobrew" ]] || [[ ! -w "/opt/zerobrew" ]]; then
+    echo "Creating /opt/zerobrew (requires sudo)..."
+    sudo mkdir -p /opt/zerobrew/store /opt/zerobrew/db /opt/zerobrew/cache /opt/zerobrew/locks
+    sudo mkdir -p /opt/zerobrew/prefix/bin /opt/zerobrew/prefix/Cellar
+    sudo chown -R "$CURRENT_USER" /opt/zerobrew
+    sudo chown -R "$CURRENT_USER" /opt/zerobrew/prefix
+fi
+
+# Run zb init to finalize setup
 echo ""
 echo "Running zb init..."
 "$ZEROBREW_BIN/zb" init
 
 echo ""
-echo "Installation complete!"
+echo "============================================"
+echo "  zerobrew installed successfully!"
+echo "============================================"
 echo ""
-echo "To start using zerobrew, either:"
-echo "  1. Restart your terminal, or"
-echo "  2. Run: source $SHELL_CONFIG"
+echo "Run this to start using zerobrew now:"
 echo ""
-echo "Then try:"
-echo "  zb install jq"
+echo "    export PATH=\"$ZEROBREW_BIN:/opt/zerobrew/prefix/bin:\$PATH\""
+echo ""
+echo "Or restart your terminal."
+echo ""
+echo "Then try: zb install ffmpeg"
 echo ""

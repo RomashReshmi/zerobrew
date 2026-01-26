@@ -473,6 +473,11 @@ async fn download_response_internal(
         });
     }
 
+    // Flush and sync the file to ensure all data is written
+    writer.flush().map_err(|e| Error::NetworkFailure {
+        message: format!("failed to flush download: {e}"),
+    })?;
+
     if let (Some(cb), Some(n)) = (&progress, &name) {
         cb(InstallProgress::DownloadCompleted {
             name: n.clone(),
@@ -559,6 +564,22 @@ impl ParallelDownloader {
     /// Remove a blob from the cache (used when extraction fails due to corruption)
     pub fn remove_blob(&self, sha256: &str) -> bool {
         self.downloader.remove_blob(sha256)
+    }
+
+    /// Download a single file (used for retries after corruption)
+    pub async fn download_single(
+        &self,
+        request: DownloadRequest,
+        progress: Option<DownloadProgressCallback>,
+    ) -> Result<PathBuf, Error> {
+        Self::download_with_dedup(
+            self.downloader.clone(),
+            self.semaphore.clone(),
+            self.inflight.clone(),
+            request,
+            progress,
+        )
+        .await
     }
 
     pub async fn download_all(

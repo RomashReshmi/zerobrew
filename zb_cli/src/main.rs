@@ -151,8 +151,13 @@ fn run_init(root: &PathBuf, prefix: &PathBuf) -> Result<(), String> {
             }
         }
 
-        // Change ownership to current user
-        let user = std::env::var("USER").unwrap_or_else(|_| "root".to_string());
+        // Change ownership to current user - use whoami for reliability
+        let user = Command::new("whoami")
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8(o.stdout).ok())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| std::env::var("USER").unwrap_or_else(|_| "root".to_string()));
 
         let status = Command::new("sudo")
             .args(["chown", "-R", &user, &root.to_string_lossy()])
@@ -211,35 +216,42 @@ fn add_to_path(prefix: &PathBuf) -> Result<(), String> {
     let path_export = format!("export PATH=\"{}:$PATH\"", bin_path.display());
 
     // Check if already in config
-    if let Ok(contents) = std::fs::read_to_string(&config_file) {
-        if contents.contains(&bin_path.to_string_lossy().to_string()) {
-            return Ok(());
-        }
+    let already_added = if let Ok(contents) = std::fs::read_to_string(&config_file) {
+        contents.contains(&bin_path.to_string_lossy().to_string())
+    } else {
+        false
+    };
+
+    if !already_added {
+        // Append to config
+        let addition = format!("\n# zerobrew\n{}\n", path_export);
+        std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&config_file)
+            .and_then(|mut f| {
+                use std::io::Write;
+                f.write_all(addition.as_bytes())
+            })
+            .map_err(|e| format!("Failed to update {}: {}", config_file, e))?;
+
+        println!(
+            "    {} Added {} to PATH in {}",
+            style("✓").green(),
+            bin_path.display(),
+            config_file
+        );
     }
 
-    // Append to config
-    let addition = format!("\n# zerobrew\n{}\n", path_export);
-    std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&config_file)
-        .and_then(|mut f| {
-            use std::io::Write;
-            f.write_all(addition.as_bytes())
-        })
-        .map_err(|e| format!("Failed to update {}: {}", config_file, e))?;
-
-    println!(
-        "    {} Added {} to PATH in {}",
-        style("✓").green(),
-        bin_path.display(),
-        config_file
-    );
-    println!(
-        "    {} Run {} or restart your terminal",
-        style("→").cyan(),
-        style(format!("source {}", config_file)).cyan()
-    );
+    // Always check if PATH is actually set in current shell
+    let current_path = std::env::var("PATH").unwrap_or_default();
+    if !current_path.contains(&bin_path.to_string_lossy().to_string()) {
+        println!(
+            "    {} Run {} or restart your terminal",
+            style("→").cyan(),
+            style(format!("source {}", config_file)).cyan()
+        );
+    }
 
     Ok(())
 }
